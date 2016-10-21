@@ -34,6 +34,16 @@ enum class MemoryPressureLevel: std::uint8_t { kNone, kModerate, kCritical };
 using AtomicWorld = intptr_t;
 using Atomic64 = intptr_t;
 
+// --------------------------------------------------------------
+// Constants
+
+const int KB = 1024;
+const int MB = KB * KB;
+const int GB = KB * KB * KB;
+const int kMaxInt = 0x7FFFFFFF;
+const int kMinInt = -kMaxInt - 1;
+// end of Contants ---------------------------------------------
+
 inline Atomic64 NoBarrier_AtomicIncrement(volatile Atomic64* ptr,
                                           Atomic64 increment) {
   Atomic64 temp = increment;
@@ -72,4 +82,7 @@ inline T RoundUp(T x, intptr_t m) {
   return RoundDown<T>(static_cast<T>(x + m - 1), m);
 }
 
+void FatalProcessOutOfMemory(const char* location) {
+  fprintf(stderr, "API fatal error handler returned after process out of memory \n");
+}
 #endif // #ifndef GLOBALS_H_
