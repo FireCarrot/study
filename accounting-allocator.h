@@ -16,7 +16,17 @@ class AccountingAllocator {
   private:
     static const uint8_t kMinSegmentSizePower = 13;
     static const uint8_t kMaxSegmentSizePower = 18;
-    static const uint8_t kMaxSegmentsPerBucket = 5;
+    static const size_t kNumberBuckets =
+        1 + kMaxSegmentSizePower - kMinSegmentSizePower;
+
+    // Allocates a new segment. Returns nullptr on failed allocation.
+    Segment* AllocateSegment(size_t bytes);
+    void FreeSegment(Segment* memory);
+
+    size_t GetCurrentMemoryUsage() const;
+    size_t GetMaxMemoryUsage() const;
+
+    size_t GetCurrentPoolSize() const;
 
     AtomicValue<MemoryPressureLvel> memory_pressure_level_;
     Mutex unused_segments_mutex_;
@@ -25,13 +35,13 @@ class AccountingAllocator {
     AtomicWorld max_memory_usage_ = 0;
     AtomicWorld current_pool_size_ = 0;
 
-    void FreeSegment(Segment* memory);
-
     // Empties the pool and puts all its contents onto the garbage stack.
     void ClearPool();
 
-    Segment* unused_segments_heads[1 + kMaxSegmentSizePower - kMinSegmentSizePower];
-    size_t unused_segments_sizes[1 + kMaxSegmentSizePower - kMinSegmentSizePower];
+    Segment* unused_segments_heads_[kNumberBuckets];
+
+    size_t unused_segments_sizes_[kNumberBuckets];
+    size_t unused_segments_max_sizes_[kNumberBuckets];
 
     DISALLOW_COPY_AND_ASSIGN(AccountingAllocator);
 };

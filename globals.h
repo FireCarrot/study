@@ -54,6 +54,10 @@ inline Atomic64 NoBarrier_AtomicIncrement(volatile Atomic64* ptr,
   return temp + increment;
 }
 
+inline Atomic64 NoBarrier_Load(volatile const Atomic64* ptr) {
+  return __atomic_load_n(ptr, __ATOMIC_RELAXED);
+}
+
 // Compute the 0-relative offset of some absolute value x of type T.
 // This allows conversion of Addresses and integral types into
 // 0-relative int offsets.
@@ -84,5 +88,18 @@ inline T RoundUp(T x, intptr_t m) {
 
 void FatalProcessOutOfMemory(const char* location) {
   fprintf(stderr, "API fatal error handler returned after process out of memory \n");
+}
+
+template <typename T, typename U>
+inline bool IsAligned(T value, U alignment) {
+  return (value & (alignment - 1)) == 0;
+}
+
+// Returns true if (addr + offset) is aligned.
+inline bool IsAddressAligned(Address addr,
+                             intptr_t alignment,
+                             int offset = 0) {
+  intptr_t offs = OffsetFrom(addr + offset);
+  return IsAligned(offs, alignment);
 }
 #endif // #ifndef GLOBALS_H_

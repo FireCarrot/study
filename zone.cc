@@ -1,5 +1,17 @@
 #include "zone.h"
 
+#define ASAN_POSITION_MEMORY_REGION(start, size) \
+  do {                                           \
+    USE(start);                                  \
+    USE(size);                                   \
+  } while (false)                                \
+
+#define ASAN_UNPOSITION_MEMORY_REGION(start, size) \
+  do {                                             \
+    USE(start);                                    \
+    USE(size);                                     \
+  } while (false)                                  \
+
 Zone::Zone(AccountingAllocator* allocator, const char* name)
     : allocation_size_(0),
       segment_bytes_allocated_(0),
@@ -12,6 +24,30 @@ Zone::Zone(AccountingAllocator* allocator, const char* name)
 }
 
 Zone::~Zone() {
+  allocator_->ZoneDestruction(this);
+
+  DeleteAll();
+
+//  DCHECK(segment_bytes_allocated_ == 0);
+}
+
+void Zone::DeleteAll() {
+  // Traverse the chained list of segments and return them all to the allocator.
+  for (Segment* current = segment_head_; current;){
+    Segment* next = current->next();
+    size_t size = current->size();
+
+    // Un-poison the segment content so we can re-use or zap it later.
+    ASAN_UNPOSITION_MEMORY_REGION(current->start(), current->capacity());
+
+    segment_bytes_allocated_ -= size;
+    allocator_->ReturnSegment(current);
+    current = next;
+  }
+
+  position_ = limit_ = 0;
+  allocation_size_ = 0;
+  segment_head_ = nullptr;
 }
 
 void* Zone::New(size_t size) {
@@ -32,12 +68,34 @@ void* Zone::New(size_t size) {
   const uintptr_t position = reinterpret_cast<uintptr_t(position_);
   // position_ > limit_ can be true after the alignment correction above.
   // NewExpand should only be called if there isn't enough room in the Zone already.
-  if (limit < position || size_with_redzone > limit - position_ {
+  if (limit < position || size_with_redzone > limit - position) {
     result = NewExpand(size_with_redzone);
   } else {
     position_ += size_with_redzone;
   }
 
+  Address redzone_position = result + size;
+  // DCHECK(redzone_position + kASanRedzoneBytes == position_);
+  ASAN_POSITION_MEMORY_REGION(redzone_position, kASanRedzoneBytes);
+
+  // Check that the result has the proper alignment and return it.
+  // DCHECK(IsAddressAligned(result, kAlignment, 0));
+  allocation_size_ += size;
+  return reinterpret_cast<void*>(result);
+}
+
+// Creates a new segment, sets it size, and pushes it to the front
+// of the segment chain. Returns the new segment.
+Segment* Zone::NewSegment(size_t requested_size) {
+  Segment* result = allocator_->GetSegment(requested_size);
+  // DCHECK_GE(result->size(), requested_size);
+  segment_bytes_allocated_ += result->size();
+  if (result != nullptr) {
+    result->set_zone(this);
+    result->set_next(segment_head_);
+    segment_head_ = result;
+  }
+  return result;
 }
 
 Adress Zone::NexExpand(size_t size) {

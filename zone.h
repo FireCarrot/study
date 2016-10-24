@@ -27,6 +27,10 @@ class Zone final {
     // room in the Zone already.
     Address NewExpand(size_t size);
 
+    // Creates a new segment, sets it size, and pushes it to the front
+    // of the segment chain. Returns the new segment.
+    inline Segment* NewSegment(size_t requested_size);
+
     static const size_t kAlignment = kPointerSize;
     // Never allocate segments smaller than this size in bytes.
     static const size_t kMinimumSegmentSize = 8 * KB;
@@ -35,6 +39,9 @@ class Zone final {
 
     // Report zone excess when allocation exceeds this limit.
     static const size_t kExcessLimit = 256 * MB;
+
+    // Deletes all objects and free all memory allocated in the Zone.
+    void DeleteAll();
 
     // The number of bytes allocated in this zone so far.
     size_t allocation_size_;
